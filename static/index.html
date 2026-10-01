@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>叉车换电管理系统</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div class="brand">叉车换电管理 <small>Forklift Battery Swap</small></div>
+  <div class="spacer"></div>
+  <div class="actor-box">
+    人员
+    <input id="actor" value="李师傅" size="9" placeholder="姓名/工号">
+  </div>
+  <div class="role-box">
+    角色
+    <select id="role">
+      <option value="dispatcher">调度员</option>
+      <option value="operator" selected>换电人</option>
+      <option value="maintenance">维修人员</option>
+    </select>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="pool" class="active">电池池位图</button>
+  <button data-tab="swap">换电队列</button>
+  <button data-tab="charges">充电记录</button>
+  <button data-tab="health">健康隔离</button>
+  <button data-tab="vehicles">叉车状态</button>
+</nav>
+
+<main>
+  <!-- ============ 池位图 ============ -->
+  <section id="tab-pool">
+    <div class="stat-row" id="pool-stats"></div>
+    <div class="section-title">充电槽位</div>
+    <div class="grid cols-4" id="slots"></div>
+    <div class="section-title">未上架电池（可用池 / 阻断）</div>
+    <div class="grid cols-4" id="loose"></div>
+    <div class="section-title">健康隔离</div>
+    <div class="grid cols-4" id="isolated"></div>
+  </section>
+
+  <!-- ============ 换电 ============ -->
+  <section id="tab-swap" hidden>
+    <div class="card" style="margin-bottom:12px">
+      <h3>预约换电（作业间隙）</h3>
+      <div class="form-row">
+        <select id="enq-vehicle" style="min-width:200px"></select>
+        <input id="enq-window" placeholder="作业间隙，如 14:00-14:20" size="22">
+        <button class="btn green" id="btn-enqueue">预约</button>
+        <span class="muted">调度员/换电人可预约；两人并发扫同一块电池时，事务保证只成功一个绑定</span>
+      </div>
+    </div>
+    <div class="grid cols-2">
+      <div>
+        <div class="section-title" style="margin-top:0">换电队列</div>
+        <div id="queue-list"></div>
+      </div>
+      <div id="swap-stage-wrap">
+        <div class="section-title" style="margin-top:0">换电作业</div>
+        <div id="swap-stage"><div class="card muted">从左侧选择一条预约开始换电：取下旧电池时扫码交接，再从右侧选择兼容的可用电池。</div></div>
+      </div>
+    </div>
+    <div class="section-title">换电记录</div>
+    <div id="swap-history"></div>
+  </section>
+
+  <!-- ============ 充电记录 ============ -->
+  <section id="tab-charges" hidden>
+    <div class="card" style="margin-bottom:12px">
+      <h3>上架充电</h3>
+      <div class="form-row">
+        <select id="chg-battery"></select>
+        <select id="chg-slot"></select>
+        <button class="btn green" id="btn-charge">开始充电</button>
+        <span class="muted">隔离、过热、非空闲电池与故障槽位均会被拒绝；预计充满时间显示在池位图</span>
+      </div>
+    </div>
+    <div id="charge-table"></div>
+  </section>
+
+  <!-- ============ 健康隔离 ============ -->
+  <section id="tab-health" hidden>
+    <div class="card" style="margin-bottom:12px">
+      <h3>健康检测（仅维修人员）</h3>
+      <div class="form-row">
+        <select id="hc-battery" style="min-width:160px"></select>
+        <select id="hc-result">
+          <option value="quarantine">隔离</option>
+          <option value="pass">复检合格</option>
+        </select>
+        健康度 <input id="hc-score" type="number" value="75" min="0" max="100" style="width:72px">
+        <select id="hc-reason">
+          <option value="">附加原因…</option>
+          <option value="overheat">电池过热</option>
+          <option value="wrong_install">错装痕迹</option>
+          <option value="charge_interrupted">充电异常中断</option>
+          <option value="slot_fault">槽位故障致损</option>
+        </select>
+        <input id="hc-photo" placeholder="检测照片文件名（data/photos 下）" size="26">
+        <input id="hc-note" placeholder="检测说明" size="22">
+        <button class="btn" id="btn-health">提交结论</button>
+      </div>
+      <div class="form-row">
+        <select id="hc-slot"></select>
+        <select id="hc-slot-state">
+          <option value="fault">标记槽位故障</option>
+          <option value="ok">修复槽位</option>
+        </select>
+        <input id="hc-slot-reason" placeholder="故障原因" size="24">
+        <button class="btn" id="btn-slot-state">执行</button>
+        <span class="muted">检测结论只增不改；调度员角色提交将被拒绝（403）</span>
+      </div>
+    </div>
+    <div id="health-table"></div>
+  </section>
+
+  <!-- ============ 叉车状态 ============ -->
+  <section id="tab-vehicles" hidden>
+    <div id="vehicles"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
