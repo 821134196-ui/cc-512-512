@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>叉车动力电池换电管理</title>
+<link rel="stylesheet" href="/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='4' y='8' width='22' height='16' rx='2' fill='%233a4048'/><rect x='26' y='13' width='3' height='6' fill='%233a4048'/><rect x='7' y='11' width='12' height='10' fill='%231e9e5a'/></svg>">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="3" y="9" width="23" height="15" rx="2" fill="none" stroke="#3a4048" stroke-width="2"/>
+      <rect x="26" y="14" width="3" height="5" fill="#3a4048"/>
+      <rect x="6" y="12" width="13" height="9" fill="#1e9e5a"/>
+      <path d="M13 10.5l-3 5h2.5l-1 4 4-5.5H13z" fill="#fff"/>
+    </svg>
+    <h1>叉车动力电池换电管理</h1>
+  </div>
+  <div class="rolebox">
+    <label>当前账号</label>
+    <select id="userSelect"></select>
+    <span id="roleTag" class="role-tag"></span>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="pool" class="active">池位图</button>
+  <button data-tab="swap">换电作业</button>
+  <button data-tab="queue">换电队列</button>
+  <button data-tab="charge">充电记录</button>
+  <button data-tab="health">健康隔离</button>
+  <button data-tab="forklift">叉车状态</button>
+</nav>
+
+<main>
+  <!-- 池位图 -->
+  <section id="tab-pool" class="tab active">
+    <div class="hint" id="poolHint"></div>
+    <div class="pool-zones">
+      <div class="zone">
+        <h2>🟢 可用电池池 <small>满电 / 型号匹配即可扫码换装</small></h2>
+        <div class="cards" id="zoneAvailable"></div>
+      </div>
+      <div class="zone">
+        <h2>🔌 充电槽位 <small>显示预计充满时间</small></h2>
+        <div class="cards" id="zoneCharging"></div>
+      </div>
+      <div class="zone">
+        <h2>🚜 在车电池 <small>绑定叉车，互斥占用</small></h2>
+        <div class="cards" id="zoneOnFork"></div>
+      </div>
+      <div class="zone zone-blocked">
+        <h2>⛔ 不可入池 <small>过热 / 槽位故障 / 充电中断 / 型号不兼容 / 错装 / 健康度过低</small></h2>
+        <div class="cards" id="zoneBlocked"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 换电作业：左旧右新 -->
+  <section id="tab-swap" class="tab">
+    <div class="swap-order-bar">
+      <label>换电单</label>
+      <select id="swapOrder"></select>
+      <span id="swapStatus" class="status-chip"></span>
+      <span id="swapFork"></span>
+    </div>
+    <div class="swap-board">
+      <div class="swap-col old">
+        <h2>① 旧电池（取下 → 交接 → 入槽）</h2>
+        <div id="oldPanel" class="scan-panel"></div>
+        <div class="scan-row">
+          <input id="oldCode" placeholder="扫码：旧电池编号，如 BAT-02">
+          <button data-scan="old">扫码取下交接</button>
+        </div>
+        <div class="scan-row">
+          <input id="slotCode" placeholder="扫码：空闲槽位编号，如 SLOT-01">
+          <button data-scan="slot">扫码入槽充电</button>
+        </div>
+        <div class="slots-mini" id="slotsMini"></div>
+      </div>
+      <div class="swap-arrow">➜</div>
+      <div class="swap-col new">
+        <h2>② 新电池（选池 → 扫码安装 → 复核）</h2>
+        <div id="newPanel" class="scan-panel"></div>
+        <div class="scan-row">
+          <input id="newCode" placeholder="扫码：可用电池编号，如 BAT-05">
+          <button data-scan="new">扫码安装新电池</button>
+        </div>
+        <div class="scan-row confirm-row">
+          <button id="confirmBtn" class="primary">✔ 复核固定与可用电量，完成换电</button>
+        </div>
+        <h3 class="pick-title">可用池点选填入扫码框：</h3>
+        <div class="cards small" id="newPick"></div>
+      </div>
+    </div>
+    <div class="timeline" id="swapTimeline"></div>
+  </section>
+
+  <!-- 换电队列 -->
+  <section id="tab-queue" class="tab">
+    <div class="toolbar">
+      <form id="reserveForm" class="inline-form">
+        <select id="reserveFork"></select>
+        <input id="reserveNote" placeholder="备注（作业间隙预约）">
+        <button class="primary">预约换电</button>
+      </form>
+    </div>
+    <table>
+      <thead><tr><th>换电单</th><th>叉车</th><th>状态</th><th>旧电池/电量</th>
+      <th>新电池/电量</th><th>充电槽位</th><th>换电人</th><th>预约时间</th><th>操作</th></tr></thead>
+      <tbody id="queueBody"></tbody>
+    </table>
+  </section>
+
+  <!-- 充电记录 -->
+  <section id="tab-charge" class="tab">
+    <h2 class="section-title">充电记录</h2>
+    <table>
+      <thead><tr><th>#</th><th>电池</th><th>槽位</th><th>开始时间</th><th>结束时间</th>
+      <th>起始电量</th><th>结束电量</th><th>电量 kWh</th><th>状态/中断原因</th></tr></thead>
+      <tbody id="chargeBody"></tbody>
+    </table>
+  </section>
+
+  <!-- 健康隔离 -->
+  <section id="tab-health" class="tab">
+    <h2 class="section-title">健康检测与隔离 <small>检测结论仅维修人员可登记，调度员无权修改</small></h2>
+    <div class="health-grid">
+      <form id="healthForm" class="card-form">
+        <h3>登记检测结论</h3>
+        <label>电池</label><select id="healthBattery"></select>
+        <label>SOH 健康度 %</label><input id="healthSoh" type="number" min="0" max="100">
+        <label>结论</label>
+        <select id="healthResult"><option value="合格">合格（恢复入池）</option>
+          <option value="隔离">隔离（退出可用池）</option></select>
+        <label>原因</label><input id="healthReason" placeholder="如：内阻超标 / 鼓包">
+        <label>检测照片（本地目录 data/photos）</label>
+        <input id="healthPhoto" type="file" accept="image/*" capture="environment">
+        <img id="photoPreview" class="preview" alt="">
+        <button class="primary">提交检测结论</button>
+      </form>
+      <form id="slotFaultForm" class="card-form">
+        <h3>槽位故障隔离 / 修复</h3>
+        <label>槽位</label><select id="faultSlot"></select>
+        <label>处置</label>
+        <select id="faultMode"><option value="1">置为故障并中断充电</option>
+          <option value="0">修复恢复空闲</option></select>
+        <label>原因</label><input id="faultReason" placeholder="如：通讯模块损坏">
+        <button class="primary">提交</button>
+      </form>
+      <form id="resetForm" class="card-form">
+        <h3>过热电池降温复位</h3>
+        <label>电池（温度降至 50℃ 以下可复位）</label><select id="resetBattery"></select>
+        <button class="primary">维修复位过热/中断标记</button>
+      </form>
+    </div>
+    <h3>隔离中电池</h3>
+    <div class="cards" id="isolatedCards"></div>
+    <h3>检测记录</h3>
+    <table>
+      <thead><tr><th>时间</th><th>电池</th><th>SOH</th><th>温度</th><th>结论</th>
+      <th>原因</th><th>检测人</th><th>照片</th></tr></thead>
+      <tbody id="healthBody"></tbody>
+    </table>
+  </section>
+
+  <!-- 叉车状态 -->
+  <section id="tab-forklift" class="tab">
+    <h2 class="section-title">叉车状态</h2>
+    <table>
+      <thead><tr><th>叉车编号</th><th>车型</th><th>兼容电池型号</th><th>当前电池</th>
+      <th>电量/温度</th><th>状态</th></tr></thead>
+      <tbody id="forkBody"></tbody>
+    </table>
+    <h3>扫码交接记录</h3>
+    <table>
+      <thead><tr><th>时间</th><th>换电单</th><th>阶段</th><th>电池</th><th>槽位</th>
+      <th>结果</th><th>详情</th><th>操作人</th></tr></thead>
+      <tbody id="scanBody"></tbody>
+    </table>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status"></div>
+<script src="/app.js"></script>
+</body>
+</html>
